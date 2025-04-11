@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hexcolor/hexcolor.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 class AirCargo extends StatefulWidget {
   const AirCargo({super.key});
@@ -21,36 +22,24 @@ class _AirCargoState extends State<AirCargo>
 
   TabController? tabController;
   Future<void> startScraping() async {
-    // Fluttertoast.showToast(
-    //   msg: "Data will fetched in 5 minutes . Thank You!",
-    //   toastLength: Toast.LENGTH_LONG,
-    //   gravity: ToastGravity.BOTTOM,
-    //   backgroundColor: Colors.black,
-    //   textColor: Colors.white,
-    //   fontSize: 16,
-    // );
-  setState(() {
-    isLoading = true;
-  });
-
-  try {
-    const String apiUrl = "http://192.168.236.189:5000/api/cargo/scrape";
-
-    // Build the URL with query parameters
-    final Uri url = Uri.parse(apiUrl).replace(queryParameters: {
-      'number': txtNumber.text,
-      'airline_code': txtcode.text,
+    setState(() {
+      isLoading = true;
     });
 
-    // Send GET request
-    final response = await http.get(url);
+    try {
+      const String apiUrl = "http://192.168.236.189:5000/api/cargo/scrape";
+      final Uri url = Uri.parse(apiUrl).replace(queryParameters: {
+        'number': txtNumber.text,
+        'airline_code': txtcode.text,
+      });
+      // Send GET request
+      final response = await http.get(url);
 
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
         // Parse JSON data
         setState(() {
           scrapedData = json.decode(response.body);
         });
-        
       } else {
         // Handle non-200 responses
         Fluttertoast.showToast(
@@ -264,19 +253,19 @@ class _AirCargoState extends State<AirCargo>
                             controller: tabController,
                             children: [
                               (scrapedData['flight_detail'] != null &&
-                              scrapedData['flight_detail'].isNotEmpty)                      
+                                      scrapedData['flight_detail'].isNotEmpty)
                                   ? buildFlightDetail(
                                       context, scrapedData['flight_detail'])
                                   : Center(
-                                      child: Text("No data found or wrong number",
+                                      child: Text(
+                                          "No data found or wrong number",
                                           style: GoogleFonts.poppins(
                                               fontSize: h(10),
                                               fontWeight: FontWeight.w600,
                                               color: Colors.grey
                                                   .withOpacity(0.7)))),
                               (scrapedData['milestone'] != null &&
-                            
-                              scrapedData['milestone'].isNotEmpty)
+                                      scrapedData['milestone'].isNotEmpty)
                                   ? buildMilestones(
                                       context, scrapedData['milestone'])
                                   : Center(
@@ -288,7 +277,7 @@ class _AirCargoState extends State<AirCargo>
                                           color: Colors.grey.withOpacity(0.7)),
                                     )),
                               (scrapedData['shipment'] != null &&
-                              scrapedData['shipment'].isNotEmpty)
+                                      scrapedData['shipment'].isNotEmpty)
                                   ? buildShipmentDetail(
                                       context, scrapedData['shipment'])
                                   : Center(
@@ -374,65 +363,105 @@ Widget buildShipmentDetail(
   );
 }
 
+DateTime? parseFlightDate(String? rawDate) {
+  if (rawDate == null || rawDate.isEmpty) return null;
+  try {
+    final format = DateFormat("dd.MM.yyyy");
+    return format.parse(rawDate);
+  } catch (e) {
+    print("Date parse error: $e");
+    return null;
+  }
+}
+
 Widget buildFlightDetail(BuildContext context, List<dynamic> flightDetails) {
   w(x) => MediaQuery.of(context).size.width * (x / 490);
   h(y) => MediaQuery.of(context).size.height * (y / 890);
+  flightDetails.sort((a, b) {
+    final aDate = parseFlightDate(a['flight_date']);
+    final bDate = parseFlightDate(b['flight_date']);
+    return bDate?.compareTo(aDate ?? DateTime(1900)) ?? 0;
+  });
+  final latestDate = parseFlightDate(flightDetails.first['flight_date']);
+
   return ListView(
     children: flightDetails.map((flight) {
+      final currentDate = parseFlightDate(flight['flight_date']);
+      final isLatest = currentDate == latestDate;
+
       return Card(
         elevation: 5,
+        shape: isLatest
+            ? RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(width: 1, color: Colors.green))
+            : null,
+        color: isLatest ? Colors.green[100] : Colors.white,
         child: ListTile(
           title: Text(
-            "${flight['carrier']??''} ${flight['flight_number']??''} (${flight['flight_status']??''})",
+            "${flight['carrier'] ?? ''} ${flight['flight_number'] ?? ''} (${flight['flight_status'] ?? ''})",
             style: GoogleFonts.poppins(
-                fontWeight: FontWeight.normal,
-                fontSize: w(16),
-                color: HexColor('000000')),
+              fontWeight: FontWeight.normal,
+              fontSize: w(16),
+              color: HexColor('000000'),
+            ),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text.rich(TextSpan(children: [
                 TextSpan(
-                    text: 'Departure: ',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: w(14),
-                        color: HexColor('808080'))),
+                  text: 'Departure: ',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: w(14),
+                    color: HexColor('808080'),
+                  ),
+                ),
                 TextSpan(
-                    text: ' ${flight['departure'] ?? 'N/A'}',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.normal,
-                        fontSize: w(16),
-                        color: HexColor('000000'))),
+                  text: ' ${flight['departure'] ?? 'N/A'}',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.normal,
+                    fontSize: w(16),
+                    color: HexColor('000000'),
+                  ),
+                ),
               ])),
               Text.rich(TextSpan(children: [
                 TextSpan(
-                    text: 'Arrival: ',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: w(14),
-                        color: HexColor('808080'))),
+                  text: 'Arrival: ',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: w(14),
+                    color: HexColor('808080'),
+                  ),
+                ),
                 TextSpan(
-                    text: ' ${flight['arrival'] ?? 'N/A'}',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.normal,
-                        fontSize: w(16),
-                        color: HexColor('000000'))),
+                  text: ' ${flight['arrival'] ?? 'N/A'}',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.normal,
+                    fontSize: w(16),
+                    color: HexColor('000000'),
+                  ),
+                ),
               ])),
               Text.rich(TextSpan(children: [
                 TextSpan(
-                    text: 'Date: ',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: w(14),
-                        color: HexColor('808080'))),
+                  text: 'Date: ',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: w(14),
+                    color: HexColor('808080'),
+                  ),
+                ),
                 TextSpan(
-                    text: ' ${flight['flight_date'] ?? 'N/A'}',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.normal,
-                        fontSize: w(16),
-                        color: HexColor('000000'))),
+                  text: ' ${flight['flight_date'] ?? 'N/A'}',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.normal,
+                    fontSize: w(16),
+                    color: HexColor('000000'),
+                  ),
+                ),
               ])),
             ],
           ),
@@ -445,48 +474,93 @@ Widget buildFlightDetail(BuildContext context, List<dynamic> flightDetails) {
 Widget buildMilestones(BuildContext context, List<dynamic> milestones) {
   w(x) => MediaQuery.of(context).size.width * (x / 490);
   h(y) => MediaQuery.of(context).size.height * (y / 890);
+  DateTime? parseDate(String? rawDate) {
+    if (rawDate == null || rawDate.isEmpty) return null;
+
+    try {
+      final format = DateFormat("dd.MM.yyyy HH:mm");
+      return format.parse(rawDate);
+    } catch (e) {
+      print("Date parse error: $e");
+      return null;
+    }
+  }
+
+  milestones.sort((a, b) {
+    final dateA = parseDate(a['date']);
+    final dateB = parseDate(b['date']);
+    if (dateA == null && dateB == null) return 0;
+    if (dateA == null) return 1;
+    if (dateB == null) return -1;
+    return dateB.compareTo(dateA);
+  });
+  final latestDate = milestones
+      .map((m) => parseDate(m['date']))
+      .where((d) => d != null)
+      .cast<DateTime>()
+      .firstOrNull;
+
   return ListView(
     children: milestones.map((milestone) {
+      final milestoneDate = parseDate(milestone['date']);
+      final isLatest = milestoneDate != null && milestoneDate == latestDate;
+
       return Card(
         elevation: 5,
+        shape: isLatest
+            ? RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(width: 1, color: Colors.green))
+            : null,
+        color:
+            isLatest ? const Color.fromARGB(255, 220, 248, 217) : Colors.white,
         child: ListTile(
           title: Text(
-            "${milestone['status']??''} - ${milestone['location']??''}",
+            "${milestone['status'] ?? ''} - ${milestone['location'] ?? ''}",
             style: GoogleFonts.poppins(
-                fontWeight: FontWeight.normal,
-                fontSize: w(16),
-                color: HexColor('000000')),
+              fontWeight: FontWeight.normal,
+              fontSize: w(16),
+              color: HexColor('000000'),
+            ),
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text.rich(TextSpan(children: [
                 TextSpan(
-                    text: 'Date: ',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: w(14),
-                        color: HexColor('808080'))),
+                  text: 'Date: ',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: w(14),
+                    color: HexColor('808080'),
+                  ),
+                ),
                 TextSpan(
-                    text: ' ${milestone['date'] ?? 'N/A'}',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.normal,
-                        fontSize: w(16),
-                        color: HexColor('000000'))),
+                  text: ' ${milestone['date'] ?? 'N/A'}',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.normal,
+                    fontSize: w(16),
+                    color: HexColor('000000'),
+                  ),
+                ),
               ])),
               Text.rich(TextSpan(children: [
                 TextSpan(
-                    text: 'Description: ',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: w(14),
-                        color: HexColor('808080'))),
-                TextSpan(             
-                    text: ' ${milestone['description'] ?? 'N/A'}',
-                    style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.normal,
-                        fontSize: w(16),
-                        color: HexColor('000000'))),
+                  text: 'Description: ',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: w(14),
+                    color: HexColor('808080'),
+                  ),
+                ),
+                TextSpan(
+                  text: ' ${milestone['description'] ?? 'N/A'}',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.normal,
+                    fontSize: w(16),
+                    color: HexColor('000000'),
+                  ),
+                ),
               ])),
             ],
           ),
