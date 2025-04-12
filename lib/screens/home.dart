@@ -1,4 +1,5 @@
 import 'package:cargowings/screens/airCargo.dart';
+import 'package:cargowings/screens/airRates.dart';
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -82,15 +83,8 @@ class _HomeState extends State<Home> {
           );
         }
         if (title == 'Air Rates') {
-          Fluttertoast.showToast(
-            msg: 'Under Development',
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-            timeInSecForIosWeb: 2,
-            backgroundColor: Colors.black,
-            textColor: Colors.white,
-            fontSize: w(18),
-          );
+          Navigator.push(
+              context, MaterialPageRoute(builder: (context) => AirRates()));
         }
       },
       child: Container(
